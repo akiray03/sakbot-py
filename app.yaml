@@ -1,0 +1,12 @@
+application: sakbot-py
+version: 1
+runtime: python27
+api_version: 1
+threadsafe: true
+
+handlers:
+- url: /.*
+  script: hello.app
+
+env_variables:
+  SLACK_TOKEN: wiFAauv91yTFJO3aqM5aBDGj
