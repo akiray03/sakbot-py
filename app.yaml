@@ -9,4 +9,5 @@ handlers:
   script: hello.app
 
 env_variables:
-  SLACK_TOKEN: wiFAauv91yTFJO3aqM5aBDGj
+  SLACK_OUTGOING_TOKEN: __slack_outgoing_webhook_token__
+  SLACK_BOT_TOKEN: __slack_bot_users_token__

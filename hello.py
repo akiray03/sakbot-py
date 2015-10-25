@@ -5,6 +5,37 @@ import urlparse
 import logging
 import json
 import os
+import re
+from google.appengine.api import urlfetch
+from google.appengine.api import taskqueue
+
+
+def send_to_slack(channel_id, text):
+    payload = {
+        'token': os.environ.get('SLACK_BOT_TOKEN'),
+        'channel': channel_id,
+        'text': text
+    }
+    webhook_url = 'https://slack.com/api/chat.postMessage'
+    form_data = json.dumps(payload)
+    result = urlfetch.fetch(url=webhook_url, payload=form_data, method=urlfetch.POST)
+    if result.status_code >= 400:
+        logging.error(result)
+    else:
+        logging.info(result)
+
+
+def slack_handler(text, channel_name, channel_id, user_name, user_id, timestamp, **kwargs):
+    if re.search(r'べんり', text):
+        return ':smiley_cat: < べんり'
+
+    if re.search(r'あとで', text):
+        taskqueue.add(
+            url='/task',
+            payload=json.dumps({'channel_id': channel_id, 'text': 'あとで'}),
+            countdown=30
+        )
+        return
 
 
 class MainPage(webapp2.RequestHandler):
@@ -25,7 +56,7 @@ class WebhookHandler(webapp2.RequestHandler):
         for k, v in urlparse.parse_qs(self.request.body).items():
             params[k] = v[0] if len(v) == 1 else v
         logging.info(params)
-        token = os.environ.get('SLACK_TOKEN')
+        token = os.environ.get('SLACK_OUTGOING_TOKEN')
 
         if 'token' not in params:
             logging.error('token not defined')
@@ -36,13 +67,23 @@ class WebhookHandler(webapp2.RequestHandler):
             self.error(500)
             return
 
-        response = {'text': 'success'}
+        logging.info(u'text: {}'.format(params['text']))
+
+        text = slack_handler(**params)
+        response = {'text': text if text else ''}
 
         self.response.headers['Content-Type'] = 'application/json'
         self.response.write(json.dumps(response))
 
+
+class TaskHandler(webapp2.RequestHandler):
+    def post(self):
+        params = json.loads(self.request.body)
+        send_to_slack(params['channel_id'], params['text'])
+
 handlers = [
     ('/', MainPage),
-    ('/webhook', WebhookHandler)
+    ('/webhook', WebhookHandler),
+    ('/task', TaskHandler)
 ]
 app = webapp2.WSGIApplication(handlers, debug=True)
