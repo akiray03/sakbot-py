@@ -25,17 +25,29 @@ def send_to_slack(channel_name, text):
         logging.info(result.content)
 
 
+def register_delayed_message(channel, text, countdown):
+    taskqueue.add(
+        url='/task',
+        payload=json.dumps({'channel': channel, 'text': text}),
+        countdown=countdown
+    )
+
+
 def slack_handler(text, channel_name, channel_id, user_name, user_id, timestamp, **kwargs):
+    channel = '#{}'.format(channel_name)
+    user_mention = '<@{}|{}>'.format(user_name, user_id)
+
     if re.search(r'べんり', text):
         return ':smiley_cat: < べんり'
 
     if re.search(r'あとで', text):
-        taskqueue.add(
-            url='/task',
-            payload=json.dumps({'channel': '#{}'.format(channel_name), 'text': 'あとで'}),
-            countdown=30
-        )
+        register_delayed_message(channel, text='あとで通知', countdown=30)
         return
+
+    if re.search(r'start pomodoro', text):
+        register_delayed_message(channel, text='{} あと3分でpomodoro終わるよ'.format(user_mention), countdown=23*60)
+        register_delayed_message(channel, text='{} pomodoro終わりだよ'.format(user_mention), countdown=25*60)
+        return '{} pomodoro始めるよー'.format(user_mention)
 
 
 class MainPage(webapp2.RequestHandler):
