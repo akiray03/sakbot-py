@@ -10,19 +10,19 @@ from google.appengine.api import urlfetch
 from google.appengine.api import taskqueue
 
 
-def send_to_slack(channel_id, text):
+def send_to_slack(channel_name, text):
     payload = {
-        'token': os.environ.get('SLACK_BOT_TOKEN'),
-        'channel': channel_id,
+        'channel': channel_name,
         'text': text
     }
-    webhook_url = 'https://slack.com/api/chat.postMessage'
-    form_data = json.dumps(payload)
-    result = urlfetch.fetch(url=webhook_url, payload=form_data, method=urlfetch.POST)
+    webhook_url = os.environ.get('SLACK_WEBHOOK_URL')
+    logging.info(payload)
+    result = urlfetch.fetch(url=webhook_url, payload=json.dumps(payload), method=urlfetch.POST)
     if result.status_code >= 400:
-        logging.error(result)
+        logging.error(result.content)
+        raise
     else:
-        logging.info(result)
+        logging.info(result.content)
 
 
 def slack_handler(text, channel_name, channel_id, user_name, user_id, timestamp, **kwargs):
@@ -32,7 +32,7 @@ def slack_handler(text, channel_name, channel_id, user_name, user_id, timestamp,
     if re.search(r'あとで', text):
         taskqueue.add(
             url='/task',
-            payload=json.dumps({'channel_id': channel_id, 'text': 'あとで'}),
+            payload=json.dumps({'channel': '#{}'.format(channel_name), 'text': 'あとで'}),
             countdown=30
         )
         return
@@ -67,7 +67,7 @@ class WebhookHandler(webapp2.RequestHandler):
             self.error(500)
             return
 
-        logging.info(u'text: {}'.format(params['text']))
+        logging.info(params['text'])
 
         text = slack_handler(**params)
         response = {'text': text if text else ''}
@@ -77,9 +77,14 @@ class WebhookHandler(webapp2.RequestHandler):
 
 
 class TaskHandler(webapp2.RequestHandler):
+    def get(self):
+        channel = '#' + self.request.get('channel')
+        text = self.request.get('text')
+        send_to_slack(channel, text)
+
     def post(self):
         params = json.loads(self.request.body)
-        send_to_slack(params['channel_id'], params['text'])
+        send_to_slack(params['channel'], params['text'])
 
 handlers = [
     ('/', MainPage),
