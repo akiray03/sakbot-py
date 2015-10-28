@@ -35,14 +35,17 @@ def register_delayed_message(channel, text, countdown):
 
 def slack_handler(text, channel_name, channel_id, user_name, user_id, timestamp, **kwargs):
     channel = '#{}'.format(channel_name)
-    user_mention = '<@{}|{}>'.format(user_name, user_id)
+    user_mention = '<@{}>'.format(user_name, user_id)
+
+    if re.search(r'ping', text):
+        return '{} pong'.format(user_mention)
 
     if re.search(r'べんり', text):
         return ':smiley_cat: < べんり'
 
     if re.search(r'あとで', text):
-        register_delayed_message(channel, text='あとで通知', countdown=30)
-        return
+        register_delayed_message(channel, text='{} あとで通知'.format(user_mention), countdown=30)
+        return 'あとで通知するさ'
 
     if re.search(r'start pomodoro', text):
         register_delayed_message(channel, text='{} あと3分でpomodoro終わるよ'.format(user_mention), countdown=23*60)
